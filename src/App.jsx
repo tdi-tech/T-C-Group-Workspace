@@ -25,10 +25,21 @@ import {
     CheckSquare,
     Wrench,
     Lock,
-    CalendarDays
+    CalendarDays,
+    Menu,
+    X
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE FIREBASE Y ESTADO GLOBAL ---
+// ============================================================================
+// --- CONFIGURACIÓN DE FIREBASE ---
+// ============================================================================
+
+/* ===============================================================================
+🔴 1. INSTRUCCIONES PARA PRODUCCIÓN (VERCEL / LOCALHOST):
+Cuando pases este archivo a tu proyecto real, DESCOMENTA este bloque de abajo
+y COMENTA/ELIMINA el bloque número 2.
+===============================================================================*/
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -41,8 +52,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 const appId = 'nmx-r-025-project';
+
 
 // Tareas del Roadmap de Desarrollo Web (25 Lineamientos)
 const PRIMARY_TASKS = [
@@ -97,25 +108,29 @@ export default function App() {
     const [syncStatus, setSyncStatus] = useState('connecting');
     const [showLogModal, setShowLogModal] = useState(false);
 
-    // Inicialización y Auth
-    useEffect(() => {
-    const initAuth = async () => {
-        try {
-            await signInAnonymously(auth);
-        } catch (error) {
-            console.error("Auth error:", error);
-            setSyncStatus('error');
-        }
-    };
+    // Estados Nuevos (Mobile y Eliminar)
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [logToDelete, setLogToDelete] = useState(null);
 
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setUser(user);
-    });
-
-    return () => unsubscribe();
-}, []);
+        // Inicialización y Auth
+        useEffect(() => {
+        const initAuth = async () => {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Auth error:", error);
+                setSyncStatus('error');
+            }
+        };
+    
+        initAuth();
+    
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setUser(user);
+        });
+    
+        return () => unsubscribe();
+    }, []);
 
     // Sync Firestore
     useEffect(() => {
@@ -177,14 +192,20 @@ export default function App() {
         }
     };
 
-    const handleDeleteLog = async (logId) => {
-        if (!user) return;
+    const executeDeleteLog = async () => {
+        if (!user || !logToDelete) return;
         try {
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'evidenceLogs', logId));
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'evidenceLogs', logToDelete));
+            setLogToDelete(null);
         }
         catch (error) {
             console.error(error);
         }
+    };
+
+    const handleNavigation = (view) => {
+        setActiveView(view);
+        setIsMobileMenuOpen(false);
     };
 
     const handlePrint = () => {
@@ -198,34 +219,55 @@ export default function App() {
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 font-sans text-slate-900 print:bg-white print:m-0">
 
-            {/* SIDEBAR */}
-            <nav className="bg-slate-900 text-white w-full md:w-72 flex-shrink-0 flex flex-col shadow-2xl z-20 print:hidden h-screen sticky top-0 overflow-y-auto">
-                <div className="p-6 border-b border-slate-800">
-                    <h1 className="text-2xl font-bold tracking-tight text-blue-400">T&C Group</h1>
-                    <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Workspace NMX-R-025</p>
+            {/* HEADER MÓVIL */}
+            <div className="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center z-30 sticky top-0 shadow-md print:hidden">
+                <div>
+                    <h1 className="text-xl font-bold tracking-tight text-blue-400">T&C Group</h1>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Workspace NMX-R-025</p>
+                </div>
+                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
+            </div>
 
-                    <div className="mt-4 flex items-center text-xs font-medium px-3 py-1.5 rounded-full bg-slate-800 w-fit">
-                        {syncStatus === 'connecting' && <Cloud className="w-4 h-4 mr-2 text-yellow-400 animate-pulse" />}
-                        {syncStatus === 'synced' && <CloudLightning className="w-4 h-4 mr-2 text-emerald-400" />}
-                        {syncStatus === 'error' && <AlertTriangle className="w-4 h-4 mr-2 text-red-400" />}
-                        <span className={syncStatus === 'synced' ? 'text-emerald-400' : syncStatus === 'error' ? 'text-red-400' : 'text-yellow-400'}>
-                            {syncStatus === 'connecting' ? 'Conectando...' : syncStatus === 'synced' ? 'Sincronizado' : 'Modo offline'}
-                        </span>
+            {/* OVERLAY PARA MÓVIL */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 bg-slate-900/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
+            )}
+
+            {/* SIDEBAR */}
+            <nav className={`bg-slate-900 text-white w-72 flex-shrink-0 flex flex-col shadow-2xl z-50 print:hidden h-screen fixed md:sticky top-0 overflow-y-auto transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+                <div className="p-6 border-b border-slate-800 flex justify-between items-start">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-blue-400 hidden md:block">T&C Group</h1>
+                        <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold hidden md:block">Workspace NMX-R-025</p>
+
+                        <div className="mt-4 flex items-center text-xs font-medium px-3 py-1.5 rounded-full bg-slate-800 w-fit">
+                            {syncStatus === 'connecting' && <Cloud className="w-4 h-4 mr-2 text-yellow-400 animate-pulse" />}
+                            {syncStatus === 'synced' && <CloudLightning className="w-4 h-4 mr-2 text-emerald-400" />}
+                            {syncStatus === 'error' && <AlertTriangle className="w-4 h-4 mr-2 text-red-400" />}
+                            <span className={syncStatus === 'synced' ? 'text-emerald-400' : syncStatus === 'error' ? 'text-red-400' : 'text-yellow-400'}>
+                                {syncStatus === 'connecting' ? 'Conectando...' : syncStatus === 'synced' ? 'Sincronizado' : 'Modo offline'}
+                            </span>
+                        </div>
                     </div>
+                    <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+                        <X className="w-6 h-6" />
+                    </button>
                 </div>
 
                 <div className="flex-grow flex flex-col gap-2 px-4 py-6">
                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-2">Gestión</div>
-                    <NavItem icon={<LayoutDashboard className="w-5 h-5" />} label="Dashboard y Gantt" view="dashboard" activeView={activeView} setView={setActiveView} />
-                    <NavItem icon={<Archive className="w-5 h-5" />} label="Expediente Auditoría" view="evidence" activeView={activeView} setView={setActiveView} />
+                    <NavItem icon={<LayoutDashboard className="w-5 h-5" />} label="Dashboard y Gantt" view="dashboard" activeView={activeView} setView={handleNavigation} />
+                    <NavItem icon={<Archive className="w-5 h-5" />} label="Expediente Auditoría" view="evidence" activeView={activeView} setView={handleNavigation} />
 
                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 mb-2 ml-2">Roadmaps</div>
-                    <NavItem icon={<ListChecks className="w-5 h-5" />} label="Desarrollo Web (25 pts)" view="roadmap_dev" activeView={activeView} setView={setActiveView} />
-                    <NavItem icon={<ClipboardCheck className="w-5 h-5" />} label="Diseño y Documentos" view="roadmap_docs" activeView={activeView} setView={setActiveView} />
+                    <NavItem icon={<ListChecks className="w-5 h-5" />} label="Desarrollo Web (25 pts)" view="roadmap_dev" activeView={activeView} setView={handleNavigation} />
+                    <NavItem icon={<ClipboardCheck className="w-5 h-5" />} label="Diseño y Documentos" view="roadmap_docs" activeView={activeView} setView={handleNavigation} />
 
                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 mb-2 ml-2">Recursos</div>
-                    <NavItem icon={<BookOpen className="w-5 h-5" />} label="Base de Conocimiento" view="docs" activeView={activeView} setView={setActiveView} />
-                    <NavItem icon={<Users className="w-5 h-5" />} label="Equipo y Stack Técnico" view="equipo" activeView={activeView} setView={setActiveView} />
+                    <NavItem icon={<BookOpen className="w-5 h-5" />} label="Base de Conocimiento" view="docs" activeView={activeView} setView={handleNavigation} />
+                    <NavItem icon={<Users className="w-5 h-5" />} label="Equipo y Stack Técnico" view="equipo" activeView={activeView} setView={handleNavigation} />
                 </div>
 
                 <div className="p-6 bg-slate-950 mt-auto">
@@ -240,20 +282,20 @@ export default function App() {
             </nav>
 
             {/* CONTENIDO PRINCIPAL */}
-            <main className="flex-grow p-6 md:p-10 lg:p-12 overflow-y-auto print:p-0">
+            <main className="flex-grow p-4 sm:p-6 md:p-10 lg:p-12 overflow-x-hidden overflow-y-auto print:p-0">
 
                 {/* DASHBOARD Y GANTT */}
                 {activeView === 'dashboard' && (
                     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
-                        <header className="mb-10">
-                            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Centro de Control Global</h2>
-                            <p className="text-lg text-slate-600 mt-2">Visión general del avance y cronograma de las áreas involucradas.</p>
+                        <header className="mb-8 md:mb-10">
+                            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Centro de Control Global</h2>
+                            <p className="text-base sm:text-lg text-slate-600 mt-2">Visión general del avance y cronograma de las áreas involucradas.</p>
                         </header>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
                                 <h3 className="text-xl font-bold mb-4 text-slate-800 border-b pb-2">Resumen de Estatus</h3>
-                                <p className="text-slate-600 mb-6 leading-relaxed">
+                                <p className="text-sm sm:text-base text-slate-600 mb-6 leading-relaxed">
                                     Proyecto integral para certificar la plataforma web institucional bajo el estándar WCAG 2.1 Nivel AA y generar los expedientes necesarios para la NMX-R-025 en un plazo de 4 meses.
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -309,7 +351,7 @@ export default function App() {
                 {activeView === 'roadmap_docs' && (
                     <RoadmapView
                         tasksArray={SECONDARY_TASKS}
-                        title="Roadmap: Auditoría y Documentación"
+                        title="Roadmap: Auditoría y Doc."
                         subtitle="Pasos obligatorios para auditar desde Figma y redactar los documentos legales."
                         taskState={taskState}
                         toggleTask={toggleTask}
@@ -321,16 +363,16 @@ export default function App() {
                     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                             <div>
-                                <h2 className="text-3xl font-bold text-slate-900 flex items-center">
-                                    <Archive className="mr-3 w-8 h-8 text-blue-600" /> Expediente de Auditoría
+                                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center">
+                                    <Archive className="mr-3 w-6 h-6 sm:w-8 sm:h-8 text-blue-600" /> Expediente de Auditoría
                                 </h2>
-                                <p className="text-lg text-slate-600 mt-1 print:hidden">Historial de pruebas documentadas para la NMX-R-025.</p>
+                                <p className="text-sm sm:text-lg text-slate-600 mt-1 print:hidden">Historial de pruebas documentadas para la NMX-R-025.</p>
                             </div>
-                            <div className="flex gap-3 print:hidden">
-                                <button onClick={handlePrint} className="flex items-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors">
-                                    <Printer className="w-4 h-4 mr-2" /> Exportar Reporte
+                            <div className="flex flex-wrap sm:flex-nowrap gap-3 print:hidden">
+                                <button onClick={handlePrint} className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors">
+                                    <Printer className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Exportar Reporte</span>
                                 </button>
-                                <button onClick={() => setShowLogModal(true)} className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors whitespace-nowrap">
+                                <button onClick={() => setShowLogModal(true)} className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors whitespace-nowrap">
                                     <Plus className="w-4 h-4 mr-2" /> Agregar Evidencia
                                 </button>
                             </div>
@@ -353,14 +395,14 @@ export default function App() {
                             </div>
                         ) : (
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm min-w-[800px]">
+                                <div className="overflow-x-auto w-full">
+                                    <table className="w-full text-left text-sm min-w-[700px]">
                                         <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                                             <tr>
                                                 <th className="p-4 font-semibold w-24">Fecha</th>
-                                                <th className="p-4 font-semibold w-40">Evaluador</th>
-                                                <th className="p-4 font-semibold w-48">Categoría</th>
-                                                <th className="p-4 font-semibold w-40">Herramienta</th>
+                                                <th className="p-4 font-semibold w-32">Evaluador</th>
+                                                <th className="p-4 font-semibold w-40">Categoría</th>
+                                                <th className="p-4 font-semibold w-32">Herramienta</th>
                                                 <th className="p-4 font-semibold">Resultados y Notas</th>
                                                 <th className="p-4 font-semibold text-center w-16 print:hidden"></th>
                                             </tr>
@@ -370,10 +412,10 @@ export default function App() {
                                                 <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                                                     <td className="p-4 whitespace-nowrap text-slate-500">{log.date}</td>
                                                     <td className="p-4 font-medium">{log.evaluator}</td>
-                                                    <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold">{log.taskCategory}</span></td>
+                                                    <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] sm:text-xs font-semibold">{log.taskCategory}</span></td>
                                                     <td className="p-4">{log.tool}</td>
                                                     <td className="p-4">
-                                                        <p className="text-sm leading-relaxed">{log.notes}</p>
+                                                        <p className="text-sm leading-relaxed break-words">{log.notes}</p>
                                                         {log.evidenceLink && (
                                                             <a href={log.evidenceLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center mt-2 text-blue-600 hover:text-blue-800 text-xs font-semibold">
                                                                 <ExternalLink className="w-3 h-3 mr-1" /> Archivo adjunto
@@ -381,7 +423,9 @@ export default function App() {
                                                         )}
                                                     </td>
                                                     <td className="p-4 text-center print:hidden">
-                                                        <button onClick={() => handleDeleteLog(log.id)} className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                                                        <button onClick={() => setLogToDelete(log.id)} className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50" title="Eliminar registro">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -395,21 +439,21 @@ export default function App() {
 
                 {/* MODAL EVIDENCIA */}
                 {showLogModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 print:hidden">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] print:hidden">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                                 <h3 className="text-lg font-bold text-slate-800 flex items-center"><Plus className="w-5 h-5 mr-2 text-blue-600" /> Nueva Evidencia</h3>
                                 <button onClick={() => setShowLogModal(false)} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
                             </div>
-                            <form onSubmit={handleAddLog} className="p-6 space-y-5">
+                            <form onSubmit={handleAddLog} className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">Nombre del Evaluador / Área</label>
                                     <input type="text" name="evaluator" required placeholder="Ej. Ana Pérez - UX/UI" className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Categoría</label>
-                                        <select name="taskCategory" className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                                        <select name="taskCategory" className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base">
                                             <option value="Diseño UI (Contraste)">Diseño UI (Contraste/Color)</option>
                                             <option value="Desarrollo (Semántica)">Desarrollo (Semántica/ALT)</option>
                                             <option value="Navegación Teclado">Navegación por Teclado</option>
@@ -419,7 +463,7 @@ export default function App() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Herramienta</label>
-                                        <select name="tool" className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                                        <select name="tool" className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base">
                                             <option value="WAVE Tool">WAVE Browser Extension</option>
                                             <option value="Stark (Figma)">Stark Plugin (Contraste)</option>
                                             <option value="NVDA Lector">NVDA (Lector de Pantalla)</option>
@@ -445,36 +489,51 @@ export default function App() {
                     </div>
                 )}
 
+                {/* MODAL CONFIRMACIÓN ELIMINAR */}
+                {logToDelete && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70] print:hidden">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center">
+                            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">¿Eliminar evidencia?</h3>
+                            <p className="text-slate-600 mb-6 text-sm">Esta acción es irreversible y el registro se eliminará permanentemente del expediente de auditoría.</p>
+                            <div className="flex justify-center gap-3 flex-wrap">
+                                <button onClick={() => setLogToDelete(null)} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors w-full sm:w-auto">Cancelar</button>
+                                <button onClick={executeDeleteLog} className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-sm transition-colors w-full sm:w-auto">Sí, eliminar</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* WIKI / BASE DE CONOCIMIENTO */}
                 {activeView === 'docs' && (
                     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
                         <header className="mb-8">
-                            <h2 className="text-3xl font-bold text-slate-900 flex items-center">
-                                <BookOpen className="w-8 h-8 mr-3 text-blue-600" />
-                                Wiki Interna del Proyecto
+                            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center">
+                                <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 mr-3 text-blue-600" />
+                                Wiki Interna
                             </h2>
-                            <p className="text-lg text-slate-600 mt-2">Toda la documentación normativa, estratégica y técnica en un solo lugar.</p>
+                            <p className="text-base sm:text-lg text-slate-600 mt-2">Toda la documentación normativa, estratégica y técnica en un solo lugar.</p>
                         </header>
 
-                        <div className="flex overflow-x-auto pb-2 mb-6 border-b border-slate-200 hide-scrollbar">
-                            <button onClick={() => setActiveDocTab('normativa')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors ${activeDocTab === 'normativa' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                                <FileText className="w-4 h-4 inline mr-2" />Protocolo y NMX-R-025
+                        <div className="flex overflow-x-auto pb-2 mb-6 border-b border-slate-200 hide-scrollbar snap-x">
+                            <button onClick={() => setActiveDocTab('normativa')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors snap-start ${activeDocTab === 'normativa' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                                <FileText className="w-4 h-4 inline mr-2" />Protocolo y NMX
                             </button>
-                            <button onClick={() => setActiveDocTab('diseno')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors ${activeDocTab === 'diseno' ? 'border-purple-600 text-purple-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                                <Palette className="w-4 h-4 inline mr-2" />Auditoría desde Diseño
+                            <button onClick={() => setActiveDocTab('diseno')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors snap-start ${activeDocTab === 'diseno' ? 'border-purple-600 text-purple-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                                <Palette className="w-4 h-4 inline mr-2" />Auditoría Diseño
                             </button>
-                            <button onClick={() => setActiveDocTab('tecnica')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors ${activeDocTab === 'tecnica' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                            <button onClick={() => setActiveDocTab('tecnica')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors snap-start ${activeDocTab === 'tecnica' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
                                 <Code className="w-4 h-4 inline mr-2" />Estrategia Elementor
                             </button>
-                            <button onClick={() => setActiveDocTab('legal')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors ${activeDocTab === 'legal' ? 'border-amber-600 text-amber-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                                <ShieldCheck className="w-4 h-4 inline mr-2" />Declaración Legal y Evidencias
+                            <button onClick={() => setActiveDocTab('legal')} className={`whitespace-nowrap px-4 py-3 font-semibold border-b-2 transition-colors snap-start ${activeDocTab === 'legal' ? 'border-amber-600 text-amber-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                                <ShieldCheck className="w-4 h-4 inline mr-2" />Docs Legales
                             </button>
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-8">
                             {activeDocTab === 'normativa' && (
                                 <div className="prose prose-slate prose-blue max-w-none animate-in fade-in duration-300">
-                                    <h3 className="text-2xl text-blue-900 border-b pb-2">Fundamentos de la Norma Mexicana y WCAG</h3>
+                                    <h3 className="text-xl sm:text-2xl text-blue-900 border-b pb-2">Fundamentos de la Norma Mexicana y WCAG</h3>
                                     <p><strong>El Protocolo:</strong> La tecnología del sitio web actual de T&C Group no permite implementar adecuadamente criterios Nivel AA. Se determina la creación de un nuevo sitio que garantice: lenguaje incluyente, representación visual no discriminatoria y accesibilidad digital.</p>
 
                                     <h4>Los 4 Principios (POUR)</h4>
@@ -492,10 +551,10 @@ export default function App() {
 
                             {activeDocTab === 'diseno' && (
                                 <div className="prose prose-slate prose-purple max-w-none animate-in fade-in duration-300">
-                                    <h3 className="text-2xl text-purple-900 border-b pb-2">Guía de Auditoría desde el Diseño (Figma/UX)</h3>
+                                    <h3 className="text-xl sm:text-2xl text-purple-900 border-b pb-2">Guía de Auditoría desde el Diseño (Figma/UX)</h3>
                                     <p>Es indispensable auditar la accesibilidad <em>antes</em> de escribir código. El equipo de diseño UX/UI debe aplicar revisiones en 4 niveles:</p>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 not-prose mt-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 not-prose mt-6">
                                         <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
                                             <h4 className="font-bold text-purple-900 mb-2">1. Sistema Base (Tokens)</h4>
                                             <ul className="text-sm text-slate-700 space-y-1 list-disc pl-4">
@@ -532,7 +591,7 @@ export default function App() {
 
                             {activeDocTab === 'tecnica' && (
                                 <div className="prose prose-slate prose-emerald max-w-none animate-in fade-in duration-300">
-                                    <h3 className="text-2xl text-emerald-900 border-b pb-2">Implementación en WordPress (Elementor Ally)</h3>
+                                    <h3 className="text-xl sm:text-2xl text-emerald-900 border-b pb-2">Implementación en WordPress (Elementor)</h3>
                                     <p>La regla de oro técnica: <strong>Un widget flotante NO soluciona el código roto.</strong> La accesibilidad Nivel AA exige HTML semántico nativo.</p>
 
                                     <h4>La Solución "Elementor Ally"</h4>
@@ -552,7 +611,7 @@ export default function App() {
 
                             {activeDocTab === 'legal' && (
                                 <div className="prose prose-slate prose-amber max-w-none animate-in fade-in duration-300">
-                                    <h3 className="text-2xl text-amber-900 border-b pb-2">Documentación Legal: La Declaración y Evidencias</h3>
+                                    <h3 className="text-xl sm:text-2xl text-amber-900 border-b pb-2">Documentación Legal: La Declaración</h3>
 
                                     <h4>Estructura de la "Declaración de Accesibilidad"</h4>
                                     <p>Documento público obligatorio en el pie de página que debe contener 7 secciones:</p>
@@ -574,21 +633,21 @@ export default function App() {
                 {/* EQUIPO Y STACK */}
                 {activeView === 'equipo' && (
                     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
-                        <header className="mb-10">
-                            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Equipo, Roles y Stack Tecnológico</h2>
-                            <p className="text-lg text-slate-600 mt-2">Estructura operativa detallada y herramientas autorizadas para el cumplimiento NMX-R-025.</p>
+                        <header className="mb-8 md:mb-10">
+                            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Equipo, Roles y Stack</h2>
+                            <p className="text-sm sm:text-lg text-slate-600 mt-2">Estructura operativa detallada y herramientas autorizadas.</p>
                         </header>
 
                         {/* SECCIÓN 1: ROLES */}
-                        <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center border-b pb-2">
+                        <h3 className="text-xl sm:text-2xl font-bold text-slate-800 mb-6 flex items-center border-b pb-2">
                             <Users className="w-6 h-6 mr-3 text-blue-600" /> Matriz de Roles y Responsabilidades
                         </h3>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
+                                <div className="bg-slate-50 px-4 sm:px-6 py-4 border-b border-slate-200">
                                     <h4 className="font-bold text-lg text-slate-800">Equipo Interno (T&C Group)</h4>
                                 </div>
-                                <div className="p-6 space-y-6">
+                                <div className="p-4 sm:p-6 space-y-6">
                                     <div>
                                         <h5 className="font-bold text-blue-700 flex items-center mb-2"><Palette className="w-4 h-4 mr-2" /> Diseñadores Gráficos (UX/UI)</h5>
                                         <ul className="text-sm text-slate-600 space-y-1 list-disc pl-5">
@@ -618,23 +677,23 @@ export default function App() {
                             </div>
 
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="bg-slate-900 px-6 py-4 border-b border-slate-800">
-                                    <h4 className="font-bold text-lg text-white">Consultoría Externa (Requerida por Norma)</h4>
+                                <div className="bg-slate-900 px-4 sm:px-6 py-4 border-b border-slate-800">
+                                    <h4 className="font-bold text-lg text-white">Consultoría Externa (Requerida)</h4>
                                 </div>
-                                <div className="p-6 space-y-6">
+                                <div className="p-4 sm:p-6 space-y-6">
                                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                        <h5 className="font-bold text-blue-900 flex items-center mb-2"><CheckSquare className="w-4 h-4 mr-2" /> Consultor / Auditor QA Accesibilidad</h5>
-                                        <p className="text-sm text-blue-800 mb-3">La norma exige pruebas objetivas. Las pruebas automatizadas solo detectan el 30% de los errores.</p>
+                                        <h5 className="font-bold text-blue-900 flex items-center mb-2"><CheckSquare className="w-4 h-4 mr-2" /> Auditor QA Accesibilidad</h5>
+                                        <p className="text-sm text-blue-800 mb-3">Las pruebas automatizadas solo detectan el 30% de los errores.</p>
                                         <ul className="text-sm text-slate-700 space-y-1 list-disc pl-5">
-                                            <li><strong>Perfil ideal:</strong> Auditor certificado (ej. IAAP) o un experto nativo usuario de lectores de pantalla (persona con ceguera).</li>
-                                            <li><strong>Misión:</strong> Navegar el sitio completo (NVDA/VoiceOver), intentar llenar formularios y emitir el reporte final de cumplimiento que irá a la STPS.</li>
+                                            <li><strong>Perfil ideal:</strong> Auditor certificado o un experto nativo usuario de lectores de pantalla (persona con ceguera).</li>
+                                            <li><strong>Misión:</strong> Navegar el sitio completo (NVDA/VoiceOver), llenar formularios y emitir el reporte final de cumplimiento para la STPS.</li>
                                         </ul>
                                     </div>
                                     <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
                                         <h5 className="font-bold text-amber-900 flex items-center mb-2"><ShieldCheck className="w-4 h-4 mr-2" /> Especialista Legal / Compliance</h5>
                                         <ul className="text-sm text-slate-700 space-y-1 list-disc pl-5">
                                             <li><strong>Misión:</strong> Validar que las políticas institucionales de igualdad y el Código de Ética estén publicados legalmente.</li>
-                                            <li>Asegurar que el SaaS contratado para el <strong>Canal de Denuncias</strong> garantice el anonimato total y el cifrado de datos (Ley de Protección de Datos).</li>
+                                            <li>Asegurar que el SaaS contratado para el <strong>Canal de Denuncias</strong> garantice el anonimato total y cifrado de datos.</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -642,27 +701,27 @@ export default function App() {
                         </div>
 
                         {/* SECCIÓN 2: STACK TECNOLÓGICO */}
-                        <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center border-b pb-2">
+                        <h3 className="text-xl sm:text-2xl font-bold text-slate-800 mb-6 flex items-center border-b pb-2">
                             <Wrench className="w-6 h-6 mr-3 text-blue-600" /> Stack Tecnológico Autorizado
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
 
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
                                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-4"><Palette className="w-5 h-5 text-purple-600" /></div>
                                 <h4 className="font-bold text-slate-800 mb-2">Diseño y Prototipado</h4>
                                 <ul className="space-y-3 mt-4">
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">Figma + Plugin Stark</span>
-                                        <span className="text-slate-500">Para revisar contraste y simular daltonismo en fase de diseño.</span>
+                                        <span className="text-slate-500">Para revisar contraste y simular daltonismo.</span>
                                     </li>
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">WebAIM Contrast Checker</span>
-                                        <span className="text-slate-500">Herramienta web oficial para validación matemática (4.5:1).</span>
+                                        <span className="text-slate-500">Herramienta web oficial (4.5:1).</span>
                                     </li>
                                 </ul>
                             </div>
 
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
                                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-4"><Laptop className="w-5 h-5 text-blue-600" /></div>
                                 <h4 className="font-bold text-slate-800 mb-2">Construcción Core (CMS)</h4>
                                 <ul className="space-y-3 mt-4">
@@ -672,53 +731,53 @@ export default function App() {
                                     </li>
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">Hello Elementor / Astra</span>
-                                        <span className="text-slate-500">Temas certificados como "Accessibility-Ready", sin código basura.</span>
+                                        <span className="text-slate-500">Temas certificados "Accessibility-Ready".</span>
                                     </li>
                                 </ul>
                             </div>
 
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
                                 <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center mb-4"><Code className="w-5 h-5 text-emerald-600" /></div>
-                                <h4 className="font-bold text-slate-800 mb-2">Ecosistema Accesibilidad (WP)</h4>
+                                <h4 className="font-bold text-slate-800 mb-2">Accesibilidad (WP)</h4>
                                 <ul className="space-y-3 mt-4">
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">Ally by Elementor</span>
-                                        <span className="text-slate-500">Escáner interno de remediación e interfaz de widget para el usuario final.</span>
+                                        <span className="text-slate-500">Escáner interno e interfaz final.</span>
                                     </li>
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">WP Accessibility Plugin</span>
-                                        <span className="text-slate-500">Fuerza el atributo de idioma (lang) y añade links de "saltar al contenido".</span>
+                                        <span className="text-slate-500">Fuerza el idioma (lang) y "saltar al contenido".</span>
                                     </li>
                                 </ul>
                             </div>
 
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
                                 <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mb-4"><ListChecks className="w-5 h-5 text-orange-600" /></div>
                                 <h4 className="font-bold text-slate-800 mb-2">Auditoría y Testing QA</h4>
                                 <ul className="space-y-3 mt-4">
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">WAVE Tool / Axe DevTools</span>
-                                        <span className="text-slate-500">Extensiones de Chrome para escaneo automatizado en código.</span>
+                                        <span className="text-slate-500">Extensiones de escaneo en código.</span>
                                     </li>
                                     <li className="text-sm">
-                                        <span className="font-semibold text-slate-900 block">NVDA / Apple VoiceOver</span>
-                                        <span className="text-slate-500">Lectores de pantalla nativos para pruebas humanas obligatorias.</span>
+                                        <span className="font-semibold text-slate-900 block">NVDA / VoiceOver</span>
+                                        <span className="text-slate-500">Lectores de pantalla nativos.</span>
                                     </li>
                                 </ul>
                             </div>
 
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-red-200 lg:col-span-2 xl:col-span-2">
+                            <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-red-200 lg:col-span-2 xl:col-span-2">
                                 <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mb-4"><Lock className="w-5 h-5 text-red-600" /></div>
-                                <h4 className="font-bold text-slate-800 mb-2">Canal de Denuncias Cifrado (Requisito Crítico)</h4>
-                                <div className="bg-red-50 p-3 rounded text-xs text-red-800 font-medium mb-3">No utilizar Elementor Forms ni Contact Form 7. Exponen datos y no permiten comunicación bidireccional anónima.</div>
+                                <h4 className="font-bold text-slate-800 mb-2">Canal de Denuncias Cifrado</h4>
+                                <div className="bg-red-50 p-3 rounded text-xs text-red-800 font-medium mb-3">No utilizar Elementor Forms ni Contact Form 7.</div>
                                 <ul className="space-y-3 mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">KERP (Plugin WP Especializado)</span>
-                                        <span className="text-slate-500">Buzón anónimo dentro de WP, protección de IP y plazos legales.</span>
+                                        <span className="text-slate-500">Buzón anónimo dentro de WP.</span>
                                     </li>
                                     <li className="text-sm">
                                         <span className="font-semibold text-slate-900 block">Trusty / Acatia (SaaS)</span>
-                                        <span className="text-slate-500">Plataformas externas especializadas (Whistleblowing) integradas vía iFrame/Link.</span>
+                                        <span className="text-slate-500">Plataformas externas especializadas (Whistleblowing).</span>
                                     </li>
                                 </ul>
                             </div>
@@ -738,7 +797,7 @@ function NavItem({ icon, label, view, activeView, setView }) {
     return (
         <button onClick={() => setView(view)} className={`flex items-center w-full text-left px-4 py-3 rounded-lg font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
             <span className={`mr-3 ${isActive ? 'text-white' : 'text-slate-400'}`}>{icon}</span>
-            {label}
+            <span className="truncate">{label}</span>
         </button>
     );
 }
@@ -749,10 +808,10 @@ function RoadmapView({ tasksArray, title, subtitle, taskState, toggleTask }) {
 
     return (
         <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
-            <header className="mb-8 flex justify-between items-end">
+            <header className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-900">{title}</h2>
-                    <p className="text-lg text-slate-600 mt-1">{subtitle}</p>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h2>
+                    <p className="text-sm sm:text-lg text-slate-600 mt-1">{subtitle}</p>
                 </div>
             </header>
             <div className="space-y-6">
@@ -761,21 +820,21 @@ function RoadmapView({ tasksArray, title, subtitle, taskState, toggleTask }) {
                     const isPhaseComplete = phaseTasks.every(t => taskState[t.id]);
                     return (
                         <div key={phaseIdx} className={`bg-white rounded-xl border transition-colors ${isPhaseComplete ? 'border-emerald-200' : 'border-slate-200'} overflow-hidden shadow-sm`}>
-                            <div className={`p-4 border-b flex justify-between items-center ${isPhaseComplete ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}`}>
-                                <h3 className={`text-xl font-bold ${isPhaseComplete ? 'text-emerald-800' : 'text-slate-800'}`}>
+                            <div className={`p-3 sm:p-4 border-b flex justify-between items-center ${isPhaseComplete ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}`}>
+                                <h3 className={`text-lg sm:text-xl font-bold ${isPhaseComplete ? 'text-emerald-800' : 'text-slate-800'}`}>
                                     Fase {phaseIdx + 1}: {phaseTasks[0]?.phaseName}
                                 </h3>
-                                {isPhaseComplete && <span className="text-emerald-600 text-sm font-bold uppercase tracking-wider hidden sm:block">Completada</span>}
+                                {isPhaseComplete && <span className="text-emerald-600 text-[10px] sm:text-sm font-bold uppercase tracking-wider px-2">Lista</span>}
                             </div>
-                            <div className="divide-y divide-slate-100 p-2">
+                            <div className="divide-y divide-slate-100 p-1 sm:p-2">
                                 {phaseTasks.map(task => (
-                                    <label key={task.id} className="flex items-start gap-4 p-4 hover:bg-slate-50 transition-colors cursor-pointer rounded-lg">
+                                    <label key={task.id} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 hover:bg-slate-50 transition-colors cursor-pointer rounded-lg">
                                         <div className="relative flex items-start pt-1">
                                             <input type="checkbox" checked={taskState[task.id] || false} onChange={() => toggleTask(task.id)} className="peer w-5 h-5 accent-blue-600 rounded border-slate-300 cursor-pointer transition-all" />
                                         </div>
-                                        <div className="flex-1">
-                                            <div className={`font-semibold transition-colors ${taskState[task.id] ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{task.title}</div>
-                                            <div className={`text-sm mt-1 transition-colors ${taskState[task.id] ? 'text-slate-400' : 'text-slate-600'}`}>{task.desc}</div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className={`font-semibold text-sm sm:text-base transition-colors ${taskState[task.id] ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{task.title}</div>
+                                            <div className={`text-xs sm:text-sm mt-1 transition-colors ${taskState[task.id] ? 'text-slate-400' : 'text-slate-600'}`}>{task.desc}</div>
                                         </div>
                                     </label>
                                 ))}
@@ -798,48 +857,48 @@ function GanttChart() {
     ];
 
     const ganttData = [
-        { area: 'Estrategia y Arquitectura Web', start: 1, end: 2, color: 'bg-slate-600' },
-        { area: 'Auditoría de Contenido y Lenguaje', start: 1, end: 4, color: 'bg-indigo-500' },
-        { area: 'Auditoría en Diseño UI (Pre-Código)', start: 3, end: 6, color: 'bg-purple-500' },
-        { area: 'Desarrollo en WordPress (Elementor)', start: 5, end: 12, color: 'bg-blue-600' },
-        { area: 'Canal de Denuncias (Implementación Legal)', start: 10, end: 12, color: 'bg-red-500' },
-        { area: 'Pruebas QA Manuales (Lector de Pantalla)', start: 11, end: 15, color: 'bg-orange-500' },
-        { area: 'Expediente Documental y Declaración', start: 14, end: 16, color: 'bg-emerald-500' }
+        { area: 'Estrategia y Arquitectura', start: 1, end: 2, color: 'bg-slate-600' },
+        { area: 'Auditoría de Contenido', start: 1, end: 4, color: 'bg-indigo-500' },
+        { area: 'Auditoría en Diseño UI', start: 3, end: 6, color: 'bg-purple-500' },
+        { area: 'Desarrollo en WordPress', start: 5, end: 12, color: 'bg-blue-600' },
+        { area: 'Canal de Denuncias Legal', start: 10, end: 12, color: 'bg-red-500' },
+        { area: 'Pruebas QA Manuales', start: 11, end: 15, color: 'bg-orange-500' },
+        { area: 'Expediente Documental', start: 14, end: 16, color: 'bg-emerald-500' }
     ];
 
     return (
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 mt-8 mb-8 overflow-x-auto">
-            <h3 className="text-xl font-bold mb-6 text-slate-800 border-b pb-3 flex items-center">
+        <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 mt-8 mb-8 overflow-x-auto">
+            <h3 className="text-lg sm:text-xl font-bold mb-6 text-slate-800 border-b pb-3 flex items-center">
                 <CalendarDays className="w-6 h-6 mr-3 text-blue-600" />
                 Cronograma de Ejecución (4 Meses)
             </h3>
 
-            <div className="min-w-[700px]">
+            <div className="min-w-[600px] md:min-w-[700px]">
                 <div className="flex border-b border-slate-200 mb-4 pb-2">
-                    <div className="w-1/3 font-bold text-sm text-slate-600 uppercase tracking-wider pl-2">Área / Fase del Proyecto</div>
+                    <div className="w-1/3 font-bold text-xs sm:text-sm text-slate-600 uppercase tracking-wider pl-2">Área del Proyecto</div>
                     <div className="w-2/3 flex">
                         {months.map((m, idx) => (
-                            <div key={idx} className="flex-1 text-center font-bold text-sm text-slate-600 uppercase tracking-wider border-l border-slate-200/50">
+                            <div key={idx} className="flex-1 text-center font-bold text-xs sm:text-sm text-slate-600 uppercase tracking-wider border-l border-slate-200/50">
                                 {m.name}
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-4 sm:space-y-5">
                     {ganttData.map((row, idx) => (
                         <div key={idx} className="flex items-center group">
-                            <div className="w-1/3 pr-4 text-sm font-medium text-slate-700 leading-tight pl-2 border-l-2 border-transparent group-hover:border-blue-500 transition-colors">
+                            <div className="w-1/3 pr-2 sm:pr-4 text-xs sm:text-sm font-medium text-slate-700 leading-tight pl-2 border-l-2 border-transparent group-hover:border-blue-500 transition-colors">
                                 {row.area}
                             </div>
-                            <div className="w-2/3 relative h-8 bg-slate-50/80 rounded-md overflow-hidden border border-slate-100">
+                            <div className="w-2/3 relative h-6 sm:h-8 bg-slate-50/80 rounded-md overflow-hidden border border-slate-100">
                                 <div className="absolute inset-0 flex">
                                     {[...Array(16)].map((_, i) => (
                                         <div key={i} className={`flex-1 border-l ${i % 4 === 0 ? 'border-slate-200' : 'border-slate-100'} h-full`}></div>
                                     ))}
                                 </div>
                                 <div
-                                    className={`absolute top-1 bottom-1 ${row.color} rounded shadow-sm flex items-center justify-center text-[10px] sm:text-xs text-white font-bold px-2 whitespace-nowrap overflow-hidden hover:opacity-90 transition-opacity cursor-default`}
+                                    className={`absolute top-1 bottom-1 ${row.color} rounded shadow-sm flex items-center justify-center text-[9px] sm:text-[10px] md:text-xs text-white font-bold px-1 sm:px-2 whitespace-nowrap overflow-hidden hover:opacity-90 transition-opacity cursor-default`}
                                     style={{
                                         left: `${((row.start - 1) / 16) * 100}%`,
                                         width: `${((row.end - row.start + 1) / 16) * 100}%`
@@ -853,12 +912,12 @@ function GanttChart() {
                     ))}
                 </div>
 
-                <div className="mt-8 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-4">
-                    <span>Simulación basada en el requerimiento de 4 meses y flujo técnico.</span>
-                    <div className="flex gap-4">
-                        <span className="flex items-center"><div className="w-3 h-3 bg-purple-500 rounded-sm mr-2"></div> Diseño</span>
-                        <span className="flex items-center"><div className="w-3 h-3 bg-blue-600 rounded-sm mr-2"></div> Desarrollo</span>
-                        <span className="flex items-center"><div className="w-3 h-3 bg-orange-500 rounded-sm mr-2"></div> Testing QA</span>
+                <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-4 gap-4">
+                    <span>Simulación basada en 4 meses y flujo técnico.</span>
+                    <div className="flex flex-wrap gap-3 sm:gap-4">
+                        <span className="flex items-center"><div className="w-3 h-3 bg-purple-500 rounded-sm mr-1 sm:mr-2"></div> Diseño</span>
+                        <span className="flex items-center"><div className="w-3 h-3 bg-blue-600 rounded-sm mr-1 sm:mr-2"></div> Desarrollo</span>
+                        <span className="flex items-center"><div className="w-3 h-3 bg-orange-500 rounded-sm mr-1 sm:mr-2"></div> QA</span>
                     </div>
                 </div>
             </div>
